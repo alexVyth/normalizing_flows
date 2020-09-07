@@ -11,7 +11,6 @@ import torchvision.transforms as T
 from torchvision.utils import save_image, make_grid
 from torch.utils.data import DataLoader
 from torch.utils.checkpoint import checkpoint
-import matplotlib.pyplot as plt
 
 from torchvision.datasets import MNIST
 from datasets.celeba import CelebA
@@ -494,12 +493,6 @@ def train_epoch(model, dataloader, optimizer, writer, epoch, args):
 
     tic = time.time()
     for i, (x,y) in enumerate(dataloader):
-        for i in range(x.shape[0]):
-            x_test = (x.cpu()[i, :, :, :])
-            x_test = np.swapaxes(x_test, 0, 2)
-            x_test = np.swapaxes(x_test, 0, 1)
-            plt.imshow(x_test)
-            plt.show()
         args.step += args.world_size
         # warmup learning rate
         if epoch <= args.n_epochs_warmup:
