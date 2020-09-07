@@ -11,6 +11,7 @@ import torchvision.transforms as T
 from torchvision.utils import save_image, make_grid
 from torch.utils.data import DataLoader
 from torch.utils.checkpoint import checkpoint
+import matplotlib.pyplot as plt
 
 from torchvision.datasets import MNIST
 from datasets.celeba import CelebA
@@ -71,6 +72,22 @@ parser.add_argument('--vis_alphas', nargs='+', type=float, help='Step size on th
 best_eval_logprob = float('-inf')
 
 
+class AddGaussianNoise(object):
+    def __init__(self, p=1, mean=0., std=1.):
+        self.std = std
+        self.mean = mean
+        self.p = p
+
+    def __call__(self, tensor):
+        if np.random.uniform() > self.p:
+            return tensor + torch.randn(tensor.size()) * self.std + self.mean
+        else:
+            return tensor
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
+
 # --------------------
 # Data
 # --------------------
@@ -81,6 +98,7 @@ def fetch_dataloader(args, train=True, data_dependent_init=False):
     transforms = {'mnist': T.Compose([T.Pad(2),                                         # image to 32x32 same as CIFAR
                                       T.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # random shifts to fill the padded pixels
                                       T.ToTensor(),
+                                      AddGaussianNoise(p=0.5, mean=0., std=0.15),
                                       T.Lambda(lambda t: t + torch.rand_like(t)/2**8),  # dequantize
                                       T.Lambda(lambda t: t.expand(3,-1,-1))]),          # expand to 3 channels
 
@@ -95,7 +113,7 @@ def fetch_dataloader(args, train=True, data_dependent_init=False):
     dataset = {'mnist': MNIST, 'celeba': CelebA}[args.dataset]
 
     # load the specific dataset
-    dataset = dataset(root=args.data_dir, train=train, transform=transforms)
+    dataset = dataset(root=args.data_dir, train=train, transform=transforms, download=True)
 
     if args.mini_data_size:
         dataset.data = dataset.data[:args.mini_data_size]
@@ -466,6 +484,7 @@ class Glow(nn.Module):
 def data_dependent_init(model, args):
     # set up an iterator with batch size = batch_size_init and run through model
     dataloader = fetch_dataloader(args, train=True, data_dependent_init=True)
+    
     model(next(iter(dataloader))[0].requires_grad_(True if args.checkpoint_grads else False).to(args.device))
     del dataloader
     return True
@@ -475,6 +494,12 @@ def train_epoch(model, dataloader, optimizer, writer, epoch, args):
 
     tic = time.time()
     for i, (x,y) in enumerate(dataloader):
+        for i in range(x.shape[0]):
+            x_test = (x.cpu()[i, :, :, :])
+            x_test = np.swapaxes(x_test, 0, 2)
+            x_test = np.swapaxes(x_test, 0, 1)
+            plt.imshow(x_test)
+            plt.show()
         args.step += args.world_size
         # warmup learning rate
         if epoch <= args.n_epochs_warmup:
