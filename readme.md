@@ -2,6 +2,8 @@
 ## Glow: Generative Flow with Invertible 1x1 Convolutions
 https://arxiv.org/abs/1807.03039
 
+Pytorch implementation of Glow model for datasets: Galaxy10, MNIST, CelebA
+
 #### Usage
 
 To train a model using pytorch distributed package:
