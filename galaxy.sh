@@ -4,5 +4,5 @@ python -m torch.distributed.launch --nproc_per_node=1 \
                --n_levels=3 \
                --depth=16 \
                --width=256 \
-               --batch_size=100 \
-	       --n_epochs=80
+               --batch_size=128 \
+	       --n_epochs=1000

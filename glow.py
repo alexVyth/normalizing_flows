@@ -93,7 +93,7 @@ class AddGaussianNoise(object):
 # --------------------
 
 def fetch_dataloader(args, train=True, data_dependent_init=False):
-    args.input_dims = {'mnist': (3,32,32), 'celeba': (3,64,64)}[args.dataset]
+    args.input_dims = {'mnist': (3,32,32), 'celeba': (3,64,64), 'galaxy': (3,69,69)}[args.dataset]
 
     transforms = {'mnist': T.Compose([T.Pad(2),                                         # image to 32x32 same as CIFAR
                                       T.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # random shifts to fill the padded pixels
@@ -101,17 +101,14 @@ def fetch_dataloader(args, train=True, data_dependent_init=False):
                                       AddGaussianNoise(p=0.5, mean=0., std=0.15),
                                       T.Lambda(lambda t: t + torch.rand_like(t)/2**8),  # dequantize
                                       T.Lambda(lambda t: t.expand(3,-1,-1))]),          # expand to 3 channels
-
-                  'galaxy': T.Compose([T.Pad(2),                                         # image to 32x32 same as CIFAR
-                                      T.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # random shifts to fill the padded pixels
-                                      T.ToTensor(),
-                                      AddGaussianNoise(p=0.5, mean=0., std=0.15),
-                                      T.Lambda(lambda t: t + torch.rand_like(t)/2**8),  # dequantize
-                                      T.Lambda(lambda t: t.expand(3,-1,-1))]),          # expand to 3 channels
-
                   'celeba': T.Compose([T.CenterCrop(148),  # RealNVP preprocessing
                                        T.Resize(64),
                                        T.Lambda(lambda im: np.array(im, dtype=np.float32)),                     # to numpy
+                                       T.Lambda(lambda x: np.floor(x / 2**(8 - args.n_bits)) / 2**args.n_bits), # lower bits
+                                       T.ToTensor(),  # note: if input to this transform is uint8, it divides by 255 and returns float
+                                       T.Lambda(lambda t: t + torch.rand_like(t) / 2**args.n_bits)]),            # dequantize
+
+                  'galaxy': T.Compose([T.Lambda(lambda im: np.array(im, dtype=np.float32)),                     # to numpy
                                        T.Lambda(lambda x: np.floor(x / 2**(8 - args.n_bits)) / 2**args.n_bits), # lower bits
                                        T.ToTensor(),  # note: if input to this transform is uint8, it divides by 255 and returns float
                                        T.Lambda(lambda t: t + torch.rand_like(t) / 2**args.n_bits)])            # dequantize
@@ -120,7 +117,7 @@ def fetch_dataloader(args, train=True, data_dependent_init=False):
     dataset = {'mnist': MNIST, 'celeba': CelebA, 'galaxy': Galaxy}[args.dataset]
 
     # load the specific dataset
-    dataset = dataset(root=args.data_dir, train=train, transform=transforms, download=True)
+    dataset = dataset(root=args.data_dir, train=train, transform=transforms)
 
     if args.mini_data_size:
         dataset.data = dataset.data[:args.mini_data_size]
