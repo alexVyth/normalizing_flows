@@ -47,7 +47,7 @@ python glow.py --visualize \
                --vis_attrs=[list of indices of attribute to be manipulated, if blank, manipulates every attribute] \
                --vis_alphas=[list of values by which `dz` should be multiplied, defaults [-2,2]] \
                --vis_img=[path to image to manipulate (note: size needs to match dataset); if blank uses example from test dataset]
-`
+```
 ## Dependencies
 * python 3.6
 * pytorch 1.0
