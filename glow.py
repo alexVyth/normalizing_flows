@@ -14,6 +14,7 @@ from torch.utils.checkpoint import checkpoint
 
 from torchvision.datasets import MNIST
 from datasets.celeba import CelebA
+from datasets.galaxy import Galaxy
 
 import numpy as np
 from tensorboardX import SummaryWriter
@@ -101,6 +102,13 @@ def fetch_dataloader(args, train=True, data_dependent_init=False):
                                       T.Lambda(lambda t: t + torch.rand_like(t)/2**8),  # dequantize
                                       T.Lambda(lambda t: t.expand(3,-1,-1))]),          # expand to 3 channels
 
+                  'galaxy': T.Compose([T.Pad(2),                                         # image to 32x32 same as CIFAR
+                                      T.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # random shifts to fill the padded pixels
+                                      T.ToTensor(),
+                                      AddGaussianNoise(p=0.5, mean=0., std=0.15),
+                                      T.Lambda(lambda t: t + torch.rand_like(t)/2**8),  # dequantize
+                                      T.Lambda(lambda t: t.expand(3,-1,-1))]),          # expand to 3 channels
+
                   'celeba': T.Compose([T.CenterCrop(148),  # RealNVP preprocessing
                                        T.Resize(64),
                                        T.Lambda(lambda im: np.array(im, dtype=np.float32)),                     # to numpy
@@ -109,7 +117,7 @@ def fetch_dataloader(args, train=True, data_dependent_init=False):
                                        T.Lambda(lambda t: t + torch.rand_like(t) / 2**args.n_bits)])            # dequantize
                   }[args.dataset]
 
-    dataset = {'mnist': MNIST, 'celeba': CelebA}[args.dataset]
+    dataset = {'mnist': MNIST, 'celeba': CelebA, 'galaxy': Galaxy}[args.dataset]
 
     # load the specific dataset
     dataset = dataset(root=args.data_dir, train=train, transform=transforms, download=True)
@@ -124,7 +132,7 @@ def fetch_dataloader(args, train=True, data_dependent_init=False):
         sampler = None
 
     batch_size = args.batch_size_init if data_dependent_init else args.batch_size  # if data dependent init use init batch size
-    kwargs = {'num_workers': 1, 'pin_memory': True} if args.device.type is 'cuda' else {}
+    kwargs = {'num_workers': 1, 'pin_memory': True} if args.device.type == 'cuda' else {}
     return DataLoader(dataset, batch_size=batch_size, shuffle=(sampler is None), drop_last=True, sampler=sampler, **kwargs)
 
 
